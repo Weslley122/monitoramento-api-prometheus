@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: balcao-aceso
+  threads:
+    virtual:
+      enabled: true # cada requisição em espera não prende uma thread do Tomcat
+
+server:
+  port: 8080
+
+app:
+  version: ${APP_VERSION:dev}
+  capacidade-rps: ${APP_CAPACIDADE_RPS:30}
+  pedidos:
+    consulta-otimizada: ${PEDIDOS_CONSULTA_OTIMIZADA:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    # Rótulos adicionados a todas as métricas. "version" permite comparar
+    # o antes e o depois de um deploy no Grafana.
+    tags:
+      application: ${spring.application.name}
+      version: ${app.version}
+    distribution:
+      # Publica os buckets do histograma, necessários para calcular p50/p95
+      # no Prometheus com histogram_quantile().
+      percentiles-histogram:
+        http.server.requests: true
+      # Buckets exatos nas faixas usadas pelo app (50/100/200 ms) e no SLO de 300 ms.
+      slo:
+        http.server.requests: 50ms,100ms,200ms,300ms
+      # Limita a faixa dos buckets para não gerar séries demais.
+      minimum-expected-value:
+        http.server.requests: 5ms
+      maximum-expected-value:
+        http.server.requests: 5s

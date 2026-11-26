@@ -1,0 +1,20 @@
+# Dependências e builds
+node_modules/
+dist/
+target/
+
+# Configuração local (pode ter senha). Use o .env.example como modelo.
+.env
+.env.local
+.env.*.local
+
+# Editor e sistema
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
