@@ -1,96 +1,138 @@
 # Balcão Aceso
 
-O Balcão Aceso é uma API de pedidos em Java com Spring Boot que mede as próprias requisições.
-O Prometheus coleta as métricas a cada 15 segundos e o Grafana exibe os painéis.
+O Balcão Aceso é uma API de uma loja fictícia com rotas de produtos, pedidos e usuários. O projeto acompanha o que acontece quando o tráfego aumenta ou quando uma nova versão entra no ar. Dá para ver, por exemplo, se uma mudança em `/pedidos` reduziu o tempo de resposta e se a taxa de erros também mudou.
 
+![Visão geral do Balcão Aceso com indicadores de tráfego, latência, erros e instâncias ativas](docs/imagens/visao-geral.png)
+
+*A captura mostra o painel React em modo simulado.*
+
+## Como as métricas chegam ao painel
+
+```mermaid
+flowchart LR
+    K["k6"] -->|Gera requisições| A["API Spring Boot<br/>3 réplicas"]
+    A -->|Expõe /actuator/prometheus| P["Prometheus"]
+    P -->|PromQL| G["Grafana"]
+    P -->|Proxy do Vite| R["Painel React"]
 ```
-Balcão Aceso (3 réplicas)     →  Prometheus  →  Grafana
-/actuator/prometheus             :9090           :3000
-            ↑
-     k6 gerando tráfego
-```
 
-## Como subir
+| Componente | O que faz |
+| --- | --- |
+| **API Spring Boot** | Atende as rotas em Java 25 e devolve dados de exemplo mantidos em memória. O simulador introduz variações de latência e falhas para reproduzir o comportamento de uma loja sob carga. |
+| **Actuator e Micrometer** | Medem a duração e o status HTTP das requisições. O endpoint `/actuator/prometheus` expõe os contadores e histogramas já com o rótulo `version`. |
+| **Prometheus** | Descobre as três réplicas pelo DNS do Docker, coleta as métricas a cada 15 segundos e guarda até sete dias de histórico. |
+| **Grafana** | Lê o Prometheus e carrega dois dashboards automaticamente. **Balcão Aceso** traz a visão geral e **Deploy · /pedidos** acompanha a rota durante uma troca de versão. |
+| **k6** | Gera chamadas para as três rotas. Com a configuração padrão, a carga base soma 60 requisições por segundo e chega a 120 no fim de cada ciclo de 15 minutos. |
+| **React e Vite** | Exibem a visão geral e a comparação de deploy. O painel aceita dados do Prometheus e tem um cenário simulado para demonstração. |
 
-Precisa do [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado.
+## Como rodar
+
+### API, Prometheus, Grafana e k6
+
+Com o Docker Compose disponível, execute na raiz do repositório.
 
 ```bash
-cp .env.example .env   # opcional: só se quiser mudar versão, tráfego ou senha
 docker compose up -d --build
+docker compose ps
 ```
 
-| Serviço    | Endereço                       | O que é |
-|------------|--------------------------------|---------|
-| Grafana    | http://localhost:3000          | Dashboards prontos (acesso sem login; admin/admin para editar) |
-| Prometheus | http://localhost:9090          | Consultas PromQL e alvos coletados (menu Status, opção Targets) |
-| API        | http://localhost:8081 a 8083   | Uma porta por réplica: `/produtos`, `/pedidos`, `/usuarios` |
+| Serviço | Acesso local |
+| --- | --- |
+| API | [Réplica 1](http://localhost:8081/actuator/health), [réplica 2](http://localhost:8082/actuator/health) e [réplica 3](http://localhost:8083/actuator/health) |
+| Prometheus | [Consultas](http://localhost:9090/graph) e [alvos de coleta](http://localhost:9090/targets) |
+| Grafana | [Balcão Aceso](http://localhost:3000/d/api-spring-boot) e [Deploy · /pedidos](http://localhost:3000/d/deploy-pedidos) |
 
-Em um ou dois minutos o gerador de carga já produz dados. A cada 15 minutos ele dobra o
-tráfego por cerca de 3 minutos, e o dashboard mostra o pico, a lentidão e os erros.
+O Grafana abre em modo de leitura sem login. A conta `admin` usa `GRAFANA_ADMIN_PASSWORD`, que vale `admin` por padrão no ambiente local. Aguarde algumas coletas para os gráficos de tráfego aparecerem.
 
-Para parar: `docker compose down` (os dados ficam nos volumes; use `down -v` para apagá-los).
+Os padrões já estão no Compose. Para personalizar a execução, copie o arquivo [`.env.example`](.env.example) para `.env` e ajuste os valores.
 
-## Dashboards
+| Variável | Padrão | Efeito |
+| --- | --- | --- |
+| `APP_VERSION` | `v1.4.0` | Valor do rótulo `version` nas métricas da API. |
+| `PEDIDOS_CONSULTA_OTIMIZADA` | `true` | Com `false`, a rota `/pedidos` ganha o atraso extra da versão antiga. |
+| `APP_CAPACIDADE_RPS` | `30` | Capacidade simulada de cada réplica em requisições por segundo. |
+| `RPS_BASE` | `60` | Tráfego base total gerado pelo k6. |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Senha da conta local de administração do Grafana. |
 
-Ficam em `grafana/dashboards/` e são carregados automaticamente:
+Para encerrar, use `docker compose down`. O histórico do Prometheus e os dados do Grafana ficam nos volumes.
 
-- **Balcão Aceso**: requisições/s, latência p95, erros 5xx, instâncias ativas, tráfego por
-  rota e respostas por classe de status.
-- **Deploy · /pedidos**: compara a rota antes e depois de uma versão nova. Uma linha vertical
-  marca o deploy sozinha, quando uma versão nova aparece nas métricas.
+### Painel React
 
-## Simular o deploy da v1.4.0
-
-1. No `.env`, coloque `APP_VERSION=v1.3.0` e `PEDIDOS_CONSULTA_OTIMIZADA=false` e rode
-   `docker compose up -d`.
-2. Espere uns 15 minutos.
-3. Troque para `APP_VERSION=v1.4.0` e `PEDIDOS_CONSULTA_OTIMIZADA=true` e rode
-   `docker compose up -d api`.
-
-No dashboard **Deploy · /pedidos**, o p95 cai logo depois da marcação.
-
-## App React (painel próprio)
-
-O app em `Dashboard/Dashboard grafana e prometheus` lê o mesmo Prometheus, com as mesmas
-consultas PromQL dos dashboards do Grafana, e atualiza a cada 15 segundos.
+Com Node.js 22.12 ou posterior, execute os comandos na raiz.
 
 ```bash
 cd "Dashboard/Dashboard grafana e prometheus"
-npm install
-npm run dev        # abre em http://localhost:5173
+npm ci
+npm run dev
 ```
 
-- O Vite repassa `/prometheus` para `http://localhost:9090`. Para outro endereço, crie um
-  `.env.local` com `PROMETHEUS_URL=http://host:porta`.
-- O seletor no topo escolhe a fonte: **Automática** (Prometheus quando estiver no ar; senão,
-  dados simulados), **Prometheus** ou **Simulado**.
-- A tela de deploy acha o deploy sozinha: é o momento em que uma versão nova aparece no
-  rótulo `version` das métricas.
-- O proxy existe no `npm run dev` e no `npm run preview`. Publicado como site estático, o app
-  não tem o proxy e mostra os dados simulados, com um aviso no topo.
-- Quando o painel mostra dados simulados, uma faixa no topo avisa que os números são de exemplo.
+Abra [o painel no navegador](http://localhost:5173). Na fonte **Automática**, ele usa o Prometheus quando a conexão está disponível e passa para **Simulado** quando o serviço está fora do ar. O seletor no topo também permite escolher a fonte manualmente.
 
-### Publicar com domínio próprio
+O Vite encaminha as consultas de `/prometheus` para `http://localhost:9090` durante `npm run dev` e `npm run preview`. Para apontar o proxy a outro servidor, adicione `PROMETHEUS_URL` ao `.env.local` do painel. Para uma publicação estática, configure o encaminhamento de `/prometheus` na hospedagem para mostrar dados ao vivo.
 
-Crie um `.env.local` na pasta do app com os endereços públicos e quem responde pela instalação
-(aparece na política de privacidade e nos termos de uso, no rodapé):
+As variáveis `VITE_PROMETHEUS_URL` e `VITE_GRAFANA_URL` configuram os links exibidos no painel. `VITE_RESPONSAVEL` e `VITE_CONTATO` preenchem a identificação da instalação na política de privacidade e nos termos de uso.
+
+## Rotas da API
+
+Os pedidos, produtos e usuários abaixo são registros de exemplo. Todas as rotas são de leitura.
+
+| Rota | O que retorna |
+| --- | --- |
+| `GET /produtos` | Catálogo com `id`, `nome`, `categoria` e `preco`. Aceita `?categoria=perifericos`, `monitores` ou `audio`. Uma categoria desconhecida retorna HTTP 400. |
+| `GET /pedidos` | Pedidos com `id`, `produtoId`, `quantidade` e `status`. É a rota usada para comparar a versão lenta e a otimizada. |
+| `GET /usuarios` | Usuários fictícios com `id` e `nome`. |
+| `GET /actuator/health` | Estado da instância, usado também pelo Docker para checar a saúde do serviço. |
+| `GET /actuator/info` | Informações de aplicação quando configuradas. |
+| `GET /actuator/prometheus` | Métricas em texto para o Prometheus coletar. |
+
+Teste a própria API pela primeira réplica. No Windows PowerShell, use `curl.exe` no lugar de `curl` se o comando estiver associado a um alias.
 
 ```bash
-PROMETHEUS_URL=http://prometheus:9090                     # para onde o proxy encaminha
-VITE_PROMETHEUS_URL=https://prometheus.seudominio.com.br  # link exibido no painel
-VITE_GRAFANA_URL=https://grafana.seudominio.com.br
-VITE_RESPONSAVEL=Nome da pessoa ou empresa
-VITE_CONTATO=contato@seudominio.com.br
+curl http://localhost:8081/actuator/health
+curl "http://localhost:8081/produtos?categoria=perifericos"
+curl http://localhost:8081/pedidos
+curl http://localhost:8081/usuarios
 ```
 
-## Estrutura
+## Como ler os indicadores
 
-| Pasta | Conteúdo |
-|-------|----------|
-| `api/` | API Spring Boot 4 (Java 25) com Actuator e Micrometer |
-| `prometheus/` | Configuração de coleta (descobre as 3 réplicas pelo DNS do Docker) |
-| `grafana/` | Fonte de dados e dashboards provisionados |
-| `carga/` | Script do k6 que gera o tráfego |
-| `Dashboard/…` | App React que lê o Prometheus ao vivo (ou dados simulados, sem ele) |
+| Indicador | O que significa |
+| --- | --- |
+| **Requisições/s** | Ritmo de chamadas atendidas pelas réplicas. O detalhamento por rota mostra onde o tráfego se concentra. |
+| **Latência p50 e p95** | Tempo em que cerca de 50% ou 95% das chamadas terminam. O p95 ajuda a enxergar as respostas lentas que a mediana esconde. |
+| **Erros 5xx (%)** | Parcela das chamadas que falharam no servidor. O simulador pode retornar HTTP 500 ocasionalmente ou HTTP 503 quando a instância está saturada. |
+| **Respostas por status** | Separa sucessos (2xx), erros do cliente (4xx) e erros do servidor (5xx). |
+| **Instâncias ativas** | Quantas réplicas o Prometheus conseguiu coletar. A série `up` informa se a coleta funcionou em cada alvo. |
+| **Limite de 300 ms** | Referência de latência do painel. A distribuição por faixas mostra quantas chamadas ficaram acima ou abaixo do limite. |
 
-As configurações ajustáveis (versão, tráfego, senha do Grafana) estão no `.env`.
+O painel React também sinaliza períodos de latência alta, erros ou queda de instâncias. Para inspecionar a consulta de um gráfico, use o botão `</>`. A busca com `Ctrl+K` ou `⌘K` dá acesso à exportação CSV do período da visão geral.
+
+Por exemplo, a consulta abaixo soma o ritmo das requisições das três réplicas nos últimos cinco minutos, excluindo as chamadas de monitoramento.
+
+```promql
+sum(rate(http_server_requests_seconds_count{job="api-spring-boot", uri!~"/actuator.*"}[5m]))
+```
+
+## Experimento de deploy em `/pedidos`
+
+![Tela de deploy do Balcão Aceso comparando a latência e os erros antes e depois da versão v1.4.0](docs/imagens/deploy-pedidos.png)
+
+*A captura usa o cenário simulado. O marcador indica quando aparece a nova versão.*
+
+1. No `.env`, configure `APP_VERSION=v1.3.0` e `PEDIDOS_CONSULTA_OTIMIZADA=false`. Suba a stack com `docker compose up -d --build`.
+2. Aguarde cerca de 15 minutos para coletar dados da versão antiga.
+3. Troque para `APP_VERSION=v1.4.0` e `PEDIDOS_CONSULTA_OTIMIZADA=true`. Recrie as réplicas com `docker compose up -d api`.
+4. Aguarde alguns minutos e abra **Deploy · /pedidos** no Grafana ou a tela de deploy no painel React. Compare p95, taxa de erros e volume de tráfego antes e depois da mudança.
+
+A diferença entre as versões vem do atraso extra simulado em `/pedidos`. As telas usam o rótulo `version` para marcar a troca. No painel React, a comparação separa a janela de troca das médias de antes e depois.
+
+## Onde fica cada parte
+
+| Caminho | Conteúdo |
+| --- | --- |
+| [`api/`](api/) | Controller das rotas, simulador de carga e configuração do Actuator e do Micrometer. |
+| [`prometheus/`](prometheus/) | Intervalo de coleta e descoberta das réplicas. |
+| [`grafana/`](grafana/) | Dashboards provisionados e conexão com o Prometheus. |
+| [`carga/carga.js`](carga/carga.js) | Distribuição das chamadas por rota e ciclos de carga do k6. |
+| [`Dashboard/`](Dashboard/Dashboard%20grafana%20e%20prometheus/) | Código e documentação do painel React. |
+| [`docker-compose.yml`](docker-compose.yml) | Serviços, portas, configurações e volumes da execução local. |
