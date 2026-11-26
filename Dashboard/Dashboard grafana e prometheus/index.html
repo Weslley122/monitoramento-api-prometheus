@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Aplica o fundo salvo antes de desenhar a página (evita um flash branco).
+      // Padrão: preto. "light" = branco; "system" = segue o sistema.
+      try {
+        const tema = localStorage.getItem('tema')
+        if (tema === 'light') document.documentElement.dataset.theme = 'light'
+        else if (tema === 'system') delete document.documentElement.dataset.theme
+      } catch {
+        /* sem acesso ao localStorage: fica o padrão (preto) */
+      }
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/balcao-aceso.svg" />
+    <meta name="description" content="Tráfego, latência e erros da API Balcão Aceso, lidos do Prometheus." />
+    <meta name="theme-color" content="#000000" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Balcão Aceso</title>
+    <style>
+      /* Aviso de reserva: só aparece se o app não carregar em 3 s. */
+      .boot {
+        max-width: 560px;
+        margin: 15vh auto 0;
+        padding: 24px;
+        font: 15px/1.6 system-ui, sans-serif;
+        color: #404040;
+        opacity: 0;
+        animation: boot-show 0s 3s forwards;
+      }
+      .boot h1 {
+        font-size: 20px;
+        color: #0a0a0a;
+      }
+      .boot code {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: #f0f0f0;
+      }
+      @keyframes boot-show {
+        to {
+          opacity: 1;
+        }
+      }
+      /* Fundo preto (padrão) ou o do sistema, quando escolhido "Automático". */
+      :root[data-theme='dark'] body {
+        background: #000;
+      }
+      :root[data-theme='dark'] .boot,
+      :root[data-theme='dark'] .boot h1 {
+        color: #e5e5e5;
+      }
+      :root[data-theme='dark'] .boot code {
+        background: #262626;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) body {
+          background: #000;
+        }
+        :root:not([data-theme]) .boot,
+        :root:not([data-theme]) .boot h1 {
+          color: #e5e5e5;
+        }
+        :root:not([data-theme]) .boot code {
+          background: #262626;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot">
+        <h1>O painel não carregou</h1>
+        <p>
+          Este app precisa ser aberto pelo Vite. Na pasta do projeto, rode <code>npm install</code> e depois
+          <code>npm run dev</code>, e acesse o endereço que aparecer (normalmente
+          <code>http://localhost:5173</code>).
+        </p>
+        <p>
+          Abrir o <code>index.html</code> direto (duplo clique ou Live Server) deixa a tela em branco, porque o
+          navegador não entende os arquivos <code>.jsx</code> sem o Vite.
+        </p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

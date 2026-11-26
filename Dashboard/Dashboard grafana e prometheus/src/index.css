@@ -1,0 +1,136 @@
+@import '@fontsource-variable/inter';
+
+/* Fundo branco (padrão) ou preto puro; os dois usam os mesmos papéis de cor. */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --corner: #a3a3a3;
+  --fg: #0a0a0a;
+  --fg-2: #404040;
+  --muted: #737373;
+  --subtle: #a3a3a3;
+
+  /* Marcas dos gráficos, da mais forte à mais fraca. */
+  --mark-1: #404040;
+  --mark-2: #8f8f8f;
+  --mark-3: #cfcfcf;
+  --mark-4: #ececec;
+  --grid: #e5e5e5;
+
+  --good: #15803d;
+  --bad: #dc2626;
+  --error-mark: #e5484d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  --sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  font: 14px/1.5 var(--sans);
+  font-feature-settings: 'cv11', 'ss01';
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+    --bg: #000000;
+    --surface: #000000;
+    --surface-2: #141414;
+    --border: #262626;
+    --border-strong: #333333;
+    --corner: #5c5c5c;
+    --fg: #fafafa;
+    --fg-2: #d4d4d4;
+    --muted: #a3a3a3;
+    --subtle: #737373;
+    --mark-1: #e5e5e5;
+    --mark-2: #8a8a8a;
+    --mark-3: #474747;
+    --mark-4: #262626;
+    --grid: #262626;
+    --good: #4ade80;
+    --bad: #f87171;
+    --error-mark: #f2555a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #000000;
+  --surface-2: #141414;
+  --border: #262626;
+  --border-strong: #333333;
+  --corner: #5c5c5c;
+  --fg: #fafafa;
+  --fg-2: #d4d4d4;
+  --muted: #a3a3a3;
+  --subtle: #737373;
+  --mark-1: #e5e5e5;
+  --mark-2: #8a8a8a;
+  --mark-3: #474747;
+  --mark-4: #262626;
+  --grid: #262626;
+  --good: #4ade80;
+  --bad: #f87171;
+  --error-mark: #f2555a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
