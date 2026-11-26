@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s # de quanto em quanto tempo o Prometheus coleta as métricas
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: api-spring-boot
+    metrics_path: /actuator/prometheus
+    # O nome "api" resolve para o IP de cada réplica do docker compose,
+    # então cada instância vira um alvo separado (up{instance=...}).
+    dns_sd_configs:
+      - names: [api]
+        type: A
+        port: 8080
+        refresh_interval: 10s
+
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]

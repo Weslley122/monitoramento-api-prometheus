@@ -1,0 +1,72 @@
+name: observabilidade-api
+
+services:
+  # API Spring Boot com 3 réplicas. Cada uma expõe /actuator/prometheus.
+  api:
+    build: ./api
+    image: api-spring-boot:local
+    environment:
+      APP_VERSION: ${APP_VERSION:-v1.4.0}
+      PEDIDOS_CONSULTA_OTIMIZADA: ${PEDIDOS_CONSULTA_OTIMIZADA:-true}
+      APP_CAPACIDADE_RPS: ${APP_CAPACIDADE_RPS:-30}
+    deploy:
+      replicas: 3
+    ports:
+      - "8081-8083:8080" # uma porta do host para cada réplica
+    restart: unless-stopped
+
+  # Coleta as métricas das réplicas a cada 15 s e guarda o histórico.
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle # permite recarregar a config com POST /-/reload
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # Consulta o Prometheus e desenha os dashboards (já provisionados).
+  grafana:
+    image: grafana/grafana:13.3.2
+    environment:
+      PROMETHEUS_URL: http://prometheus:9090
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Abre os dashboards sem login (somente leitura). Bom para uso local.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/api-spring-boot.json
+      GF_USERS_DEFAULT_LANGUAGE: pt-BR
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Gera tráfego contínuo com picos a cada 15 minutos.
+  carga:
+    image: grafana/k6:1.8.3
+    command: run --quiet /scripts/carga.js
+    environment:
+      BASE_URL: http://api:8080
+      RPS_BASE: ${RPS_BASE:-60}
+    volumes:
+      - ./carga:/scripts:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

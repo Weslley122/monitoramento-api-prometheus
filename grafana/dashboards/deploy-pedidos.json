@@ -1,0 +1,505 @@
+{
+  "uid": "deploy-pedidos",
+  "title": "Deploy · /pedidos",
+  "description": "O comportamento da rota /pedidos mudou depois da nova versão?",
+  "tags": [
+    "spring-boot",
+    "prometheus"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Deploys",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "iconColor": "#7486f8",
+        "expr": "count by (version) (process_start_time_seconds{job=\"api-spring-boot\"}) unless count by (version) (process_start_time_seconds{job=\"api-spring-boot\"} offset 1m)",
+        "step": "15s",
+        "titleFormat": "Deploy",
+        "textFormat": "versão {{version}}"
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Dashboards",
+      "type": "dashboards",
+      "tags": [
+        "spring-boot"
+      ],
+      "asDropdown": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Versão no ar",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count by (version) (process_start_time_seconds{job=\"api-spring-boot\"})",
+          "legendFormat": "{{version}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "name",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Latência p95 /pedidos",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"api-spring-boot\", uri=\"/pedidos\"}[$__rate_interval])))",
+          "legendFormat": "",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.15
+              },
+              {
+                "color": "red",
+                "value": 0.3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Erros 5xx /pedidos",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (sum(rate(http_server_requests_seconds_count{job=\"api-spring-boot\", uri=\"/pedidos\", status=~\"5..\"}[$__rate_interval])) or vector(0))\n  / sum(rate(http_server_requests_seconds_count{job=\"api-spring-boot\", uri=\"/pedidos\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Tráfego /pedidos",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"api-spring-boot\", uri=\"/pedidos\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "Tempo de resposta /pedidos",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"api-spring-boot\", uri=\"/pedidos\"}[$__rate_interval])))",
+          "legendFormat": "p50",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"api-spring-boot\", uri=\"/pedidos\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "lineInterpolation": "smooth",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Erros HTTP 5xx /pedidos",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (sum(rate(http_server_requests_seconds_count{job=\"api-spring-boot\", uri=\"/pedidos\", status=~\"5..\"}[$__rate_interval])) or vector(0))\n  / sum(rate(http_server_requests_seconds_count{job=\"api-spring-boot\", uri=\"/pedidos\"}[$__rate_interval]))",
+          "legendFormat": "Erros 5xx",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "lineInterpolation": "smooth",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "text",
+      "title": "Como simular o deploy",
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "A linha vertical marca o momento em que uma versão nova começou a responder (anotação **Deploys**).\n\n1. No arquivo `.env`, use `APP_VERSION=v1.3.0` e `PEDIDOS_CONSULTA_OTIMIZADA=false` e rode `docker compose up -d`.\n2. Espere uns 15 minutos para formar o \"antes\".\n3. Troque para `APP_VERSION=v1.4.0` e `PEDIDOS_CONSULTA_OTIMIZADA=true` e rode `docker compose up -d api`.\n\nO p95 de /pedidos deve cair logo depois da marcação."
+      },
+      "id": 7
+    }
+  ],
+  "schemaVersion": 41,
+  "version": 1
+}
