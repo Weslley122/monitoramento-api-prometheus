@@ -2,9 +2,9 @@
 
 O Balcão Aceso é uma API de uma loja fictícia com rotas de produtos, pedidos e usuários. O projeto acompanha o que acontece quando o tráfego aumenta ou quando uma nova versão entra no ar. Dá para ver, por exemplo, se uma mudança em `/pedidos` reduziu o tempo de resposta e se a taxa de erros também mudou.
 
-![Visão geral do Balcão Aceso com indicadores de tráfego, latência, erros e instâncias ativas](docs/imagens/visao-geral.png)
+![Visão geral do Balcão Aceso com tráfego, latência, erros e instâncias ativas no topo, o gráfico de requisições por status e a lista de ocorrências ao lado](docs/imagens/visao-geral.jpg)
 
-*A captura mostra o painel React em modo simulado.*
+*Painel React em modo simulado. Mais fotos, com o que cada parte mostra, em [O painel em fotos](#o-painel-em-fotos).*
 
 ## Como as métricas chegam ao painel
 
@@ -68,6 +68,8 @@ npm run dev
 
 Abra [o painel no navegador](http://localhost:5173). Na fonte **Automática**, ele usa o Prometheus quando a conexão está disponível e passa para **Simulado** quando o serviço está fora do ar. O seletor no topo também permite escolher a fonte manualmente.
 
+Cada gráfico se monta quando aparece na tela ao rolar para baixo: as colunas crescem da base, as linhas avançam no ritmo do eixo do tempo e a faixa de 24 horas acende hora a hora. Se o sistema pedir menos movimento (por exemplo, com as animações do Windows desligadas), os gráficos só esmaecem. Para mudar isso, abra a busca com `Ctrl+K` e escolha **Animação: completa** ou **Animação: desligada**.
+
 O Vite encaminha as consultas de `/prometheus` para `http://localhost:9090` durante `npm run dev` e `npm run preview`. Para apontar o proxy a outro servidor, adicione `PROMETHEUS_URL` ao `.env.local` do painel. Para uma publicação estática, configure o encaminhamento de `/prometheus` na hospedagem para mostrar dados ao vivo.
 
 As variáveis `VITE_PROMETHEUS_URL` e `VITE_GRAFANA_URL` configuram os links exibidos no painel. `VITE_RESPONSAVEL` e `VITE_CONTATO` preenchem a identificação da instalação na política de privacidade e nos termos de uso.
@@ -113,11 +115,55 @@ Por exemplo, a consulta abaixo soma o ritmo das requisições das três réplica
 sum(rate(http_server_requests_seconds_count{job="api-spring-boot", uri!~"/actuator.*"}[5m]))
 ```
 
+## O painel em fotos
+
+Todas as fotos foram tiradas com a fonte **Simulado**, então os números são do cenário de exemplo, e não de uma API rodando de verdade. Com a stack no ar, as mesmas telas mostram o Prometheus ao vivo.
+
+### Visão geral
+
+![Visão geral no fundo preto](docs/imagens/visao-geral.jpg)
+
+É a primeira tela. Embaixo do título fica uma frase com o que mais pede atenção no período escolhido; aqui, a latência p95 que passou de 300 ms entre 14:34 e 14:36. Os quatro números do topo (requisições/s, latência p95, erros 5xx e instâncias ativas) também funcionam como abas: clicar num deles troca o gráfico de baixo. A aba escolhida ganha um traço teal fino em cima do nome, o mesmo traço que marca o período (15M, 1H, 6H, 24H) e o item ativo do menu lateral.
+
+Ao lado do gráfico, **Ocorrências** lista as regras que dispararam no período, com horário e pico, e o último deploy, com um atalho para a comparação de antes e depois.
+
+### Rotas e tempo de resposta
+
+![Tabela de rotas com a faixa de 24 horas e o histograma de latência](docs/imagens/rotas-e-latencia.jpg)
+
+A tabela **Rotas** mostra o tráfego, a parte de cada rota, o p50 e o p95. A última coluna tem 24 quadradinhos, um por hora, coloridos pelo p95 daquela hora: quanto mais forte o teal, mais lenta a rota, e vermelho é acima de 300 ms. O traço vertical marca o deploy. Dá para ver a história do projeto numa linha só: `/pedidos` passa o dia no vermelho e volta para o teal na hora das 11:20, quando a v1.4.0 entra.
+
+Em **Tempo de resposta**, as barras vêm direto dos buckets do histograma do Micrometer (até 50 ms, 50 a 100, 100 a 200, 200 a 300 e acima de 300). A escada teal soma as faixas da esquerda para a direita, e a etiqueta mostra onde ela cruza o limite de 300 ms: 98,9% das requisições responderam a tempo. Ao lado ficam a divisão das respostas por status e de onde vêm os números.
+
+### Antes e depois do deploy
+
+![Comparação de /pedidos antes e depois da v1.4.0](docs/imagens/deploy.jpg)
+
+Compara a rota `/pedidos` antes e depois da troca de versão. Cada número do topo traz o valor depois do deploy e quanto mudou em relação ao antes. O gráfico desenha a média de cada lado como uma linha tracejada, então a queda de 376 ms para 148 ms aparece sem precisar fazer conta. A coluna da direita responde a pergunta da tela ("O comportamento mudou?") e mostra a linha do tempo do rollout. O tráfego entra como controle: se ele tivesse caído, a melhora poderia ser só menos carga.
+
+### A consulta por trás de cada gráfico
+
+![Gaveta com as consultas PromQL do gráfico de tráfego](docs/imagens/consulta-promql.jpg)
+
+Todo gráfico tem um botão `</>`. Ele abre uma gaveta com a consulta PromQL exata que o Grafana e o painel mandam para o Prometheus, e uma aba **Dados** com a tabela dos pontos desenhados. Serve para conferir um número ou copiar a consulta para o Grafana.
+
+### Fundo branco
+
+![Visão geral no fundo branco](docs/imagens/fundo-branco.jpg)
+
+O fundo padrão é preto, mas o seletor no topo troca para branco ou segue o tema do sistema (**Auto**). As cores têm os mesmos papéis nos dois: cinza para a estrutura, teal para o dado principal e vermelho só para erro e para o limite de 300 ms. A escolha fica salva no navegador.
+
+### No celular
+
+<img src="docs/imagens/celular.jpg" alt="Visão geral no celular, com a navegação embaixo" width="320">
+
+No celular, o menu lateral vira uma barra embaixo, os quatro números ficam em duas colunas e cada rota da tabela vira um bloco de duas linhas, sem perder nenhuma coluna.
+
 ## Experimento de deploy em `/pedidos`
 
-![Tela de deploy do Balcão Aceso comparando a latência e os erros antes e depois da versão v1.4.0](docs/imagens/deploy-pedidos.png)
+![Tela de deploy do Balcão Aceso: o p95 de /pedidos cai de 376 ms para 148 ms depois da v1.4.0](docs/imagens/deploy.jpg)
 
-*A captura usa o cenário simulado. O marcador indica quando aparece a nova versão.*
+*Cenário simulado. A linha vertical marca a entrada da v1.4.0; a faixa cinza logo depois é o rollout.*
 
 1. No `.env`, configure `APP_VERSION=v1.3.0` e `PEDIDOS_CONSULTA_OTIMIZADA=false`. Suba a stack com `docker compose up -d --build`.
 2. Aguarde cerca de 15 minutos para coletar dados da versão antiga.
