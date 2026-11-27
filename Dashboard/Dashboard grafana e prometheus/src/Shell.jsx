@@ -23,6 +23,7 @@ export function Sidebar({ views, current, onSelect, links, onHelp }) {
             onClick={() => onSelect(v.id)}
           >
             <v.Icon size={18} />
+            <span className="side-label">{v.short ?? v.title}</span>
           </button>
         ))}
         <span className="side-sep" />
@@ -37,12 +38,14 @@ export function Sidebar({ views, current, onSelect, links, onHelp }) {
             data-tip={l.title}
           >
             <l.Icon size={18} />
+            <span className="side-label">{l.short ?? l.title}</span>
           </a>
         ))}
       </nav>
       <div className="sidebar-foot">
         <button type="button" className="side-btn" aria-label="Como funciona" data-tip="Como funciona" onClick={onHelp}>
           <IconHelp size={18} />
+          <span className="side-label">Ajuda</span>
         </button>
       </div>
     </aside>
@@ -189,8 +192,11 @@ export function TopBar({ view, onSearch, alerts, formatAlert, source, background
   return (
     <header className="topbar">
       <p className="crumb">
-        <view.Icon size={16} />
-        {view.title}
+        <span className="crumb-product">Balcão Aceso</span>
+        <span className="crumb-sep" aria-hidden="true">
+          /
+        </span>
+        <span>{view.title}</span>
       </p>
       <div className="topbar-tools">
         <button type="button" className="search-btn" onClick={onSearch} aria-label="Buscar (Ctrl+K)">

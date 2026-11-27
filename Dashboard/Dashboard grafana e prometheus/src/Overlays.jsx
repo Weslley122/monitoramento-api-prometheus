@@ -117,7 +117,6 @@ export function InspectDrawer({ title, queries, table, onClose }) {
     <Modal onClose={onClose} className="drawer" labelledBy={titleId}>
       <header className="drawer-head">
         <div>
-          <p className="eyebrow">Inspecionar</p>
           <h2 id={titleId}>{title}</h2>
         </div>
         <button type="button" className="icon-btn" aria-label="Fechar" onClick={onClose} autoFocus>

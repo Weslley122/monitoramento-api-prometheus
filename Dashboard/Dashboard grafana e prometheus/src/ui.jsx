@@ -1,57 +1,76 @@
-import { IconArrowDown, IconArrowUp } from './icons.jsx'
+import { useRef } from 'react'
 import { num } from './format.js'
+import { useReveal } from './hooks.js'
 
-/** Cartão com borda fina e marcas nos cantos. */
+/** Painel: um degrau acima do fundo, com borda de 1px. */
 export function Card({ as: Tag = 'section', className = '', children, ...rest }) {
   return (
-    <Tag className={`card ${className}`} {...rest}>
+    <Tag className={`panel ${className}`} {...rest}>
       {children}
     </Tag>
   )
 }
 
-/** Rótulo pequeno no topo do cartão: ícone + título à esquerda, detalhe à direita. */
-export function CardLabel({ icon: Icon, title, meta, action }) {
+/** Bloco que anima o que tem dentro quando entra na tela rolando para baixo. */
+export function Reveal({ as: Tag = 'div', children, ...rest }) {
+  const ref = useRef(null)
+  const reveal = useReveal(ref)
   return (
-    <header className="card-label">
-      <h2>
-        {Icon && <Icon size={14} />}
-        {title}
-      </h2>
-      {meta && <span className="card-meta">{meta}</span>}
-      {action}
+    <Tag ref={ref} data-reveal={reveal} {...rest}>
+      {children}
+    </Tag>
+  )
+}
+
+/** Título da tela: o nome, a frase com o achado principal e as ações à direita. */
+export function PageHead({ title, lead, meta, children }) {
+  return (
+    <div className="page-head">
+      <div className="page-title">
+        <h1>{title}</h1>
+        {lead && <p className="page-lead">{lead}</p>}
+        {meta && <p className="page-meta">{meta}</p>}
+      </div>
+      {children && <div className="page-actions">{children}</div>}
+    </div>
+  )
+}
+
+/** Cabeçalho de seção: título à esquerda, detalhe e ação à direita. */
+export function SectionHead({ id, title, meta, children }) {
+  return (
+    <header className="section-head">
+      <h2 id={id}>{title}</h2>
+      {meta && <span className="section-meta">{meta}</span>}
+      {children && <div className="section-tools">{children}</div>}
     </header>
   )
 }
 
 /**
- * Variação em relação ao período anterior.
+ * Variação contra uma referência, com o sinal no texto ("+11,3%").
  * better: 'down' quando cair é bom (latência, erros), 'up' quando subir é bom,
- * ou null para só mostrar a variação sem julgar.
+ * ou null para só mostrar a variação, sem julgar (tráfego).
  */
 export function Delta({ current, previous, better = 'up', suffix = 'vs período anterior', stable = 2 }) {
-  if (previous == null || previous === 0) return <p className="delta muted">sem período anterior</p>
+  if (previous == null || previous === 0 || current == null) {
+    return <p className="delta muted">sem referência anterior</p>
+  }
   const change = ((current - previous) / previous) * 100
   const flat = Math.abs(change) < stable
   const good = better === null || flat ? null : (change > 0) === (better === 'up')
   const tone = good === null ? 'neutral' : good ? 'good' : 'bad'
-  const Arrow = change >= 0 ? IconArrowUp : IconArrowDown
+  const sign = change > 0 ? '+' : '−'
   return (
     <p className="delta">
-      <span className={`delta-value tone-${tone}`}>
-        {!flat && <Arrow size={12} />}
-        {flat ? 'estável' : `${num.format(Math.abs(change))}%`}
-      </span>
+      <span className={`delta-value tone-${tone}`}>{flat ? 'estável' : `${sign}${num.format(Math.abs(change))}%`}</span>
       {suffix && <span className="muted"> {suffix}</span>}
-      <span className="visually-hidden">
-        {flat ? '' : change > 0 ? ', subiu' : ', caiu'}
-        {good === null ? '' : good ? ', melhorou' : ', piorou'}
-      </span>
+      {good !== null && <span className="visually-hidden">{good ? ', melhorou' : ', piorou'}</span>}
     </p>
   )
 }
 
-/** Grupo de botões com um selecionado (períodos). */
+/** Opções com uma selecionada; a selecionada ganha a linha de 1px por baixo. */
 export function Segmented({ options, value, onChange, label }) {
   return (
     <div className="segmented" role="radiogroup" aria-label={label}>
@@ -65,9 +84,51 @@ export function Segmented({ options, value, onChange, label }) {
           className={o.id === value ? 'active' : ''}
           onClick={() => onChange(o.id)}
         >
-          {o.short}
+          <span>{o.short}</span>
         </button>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Faixa de números que também escolhe o gráfico de baixo.
+ * items: [{ id, label, value, unit, foot }]
+ */
+export function MetricTabs({ items, value, onChange, label }) {
+  const onKey = (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const i = items.findIndex((it) => it.id === value)
+    const next = items[(i + (e.key === 'ArrowLeft' ? items.length - 1 : 1)) % items.length]
+    onChange(next.id)
+    e.currentTarget.parentElement.querySelector(`[data-id="${next.id}"]`)?.focus()
+  }
+  return (
+    <div className="metric-tabs" role="tablist" aria-label={label}>
+      {items.map((it) => {
+        const on = it.id === value
+        return (
+          <button
+            key={it.id}
+            data-id={it.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            tabIndex={on ? 0 : -1}
+            className={on ? 'metric active' : 'metric'}
+            onClick={() => onChange(it.id)}
+            onKeyDown={onKey}
+          >
+            <span className="metric-label">{it.label}</span>
+            <span className="metric-value">
+              {it.value}
+              {it.unit && <span className="unit">{it.unit}</span>}
+            </span>
+            {it.foot}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -84,19 +145,19 @@ export function Button({ icon: Icon, children, variant = 'outline', className = 
 export function LinkButton({ icon: Icon, children, className = '', ...rest }) {
   return (
     <a className={`btn btn-outline ${className}`} target="_blank" rel="noreferrer" {...rest}>
-      {Icon && <Icon size={15} />}
       {children}
+      {Icon && <Icon size={14} />}
     </a>
   )
 }
 
-/** Legenda com marcador redondo. */
+/** Legenda: cada amostra é a própria marca do gráfico, em miniatura. */
 export function Legend({ items }) {
   return (
     <ul className="legend">
       {items.map((it) => (
         <li key={it.key ?? it.name}>
-          <span className="legend-dot" style={{ background: it.color }} />
+          <span className={`legend-key ${it.kind ?? 'bar'}`} style={{ '--key': it.color }} />
           {it.name}
         </li>
       ))}

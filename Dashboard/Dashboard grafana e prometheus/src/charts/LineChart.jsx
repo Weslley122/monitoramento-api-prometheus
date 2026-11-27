@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { nearest, niceScale, useWidth } from '../hooks.js'
+import { nearest, niceScale, useReveal, useWidth } from '../hooks.js'
 import { formatTime } from '../format.js'
 import { ChartTooltip, TooltipRow } from '../ui.jsx'
 
@@ -15,8 +15,14 @@ function timeTicks(from, to, maxTicks) {
   return ticks
 }
 
+const textW = (s) => s.length * 6.3 + 4
+
 /**
- * Linhas no tempo com crosshair e marcações (deploy).
+ * Linhas no tempo, em segmentos retos, com crosshair.
+ * - annotations: [{ t, label }] eventos (deploy) com o rótulo numa faixa acima do gráfico.
+ * - references: [{ value, label, tone }] linhas tracejadas de referência (SLO, limite).
+ * - spans: [{ from, to, label }] trechos sombreados (rollout).
+ * - levels: [{ from, to, value, label }] médias de um trecho, tracejadas.
  * hover/onHover: opcionais; juntos, vários gráficos compartilham o crosshair.
  */
 export default function LineChart({
@@ -27,8 +33,11 @@ export default function LineChart({
   format,
   axisFormat = format,
   annotations = [],
+  references = [],
+  spans = [],
+  levels = [],
   label,
-  height = 240,
+  height = 260,
   hover: hoverProp,
   onHover,
 }) {
@@ -37,15 +46,20 @@ export default function LineChart({
   const [own, setOwn] = useState(null)
   const hover = onHover ? hoverProp : own
   const setHover = onHover ?? setOwn
+  const reveal = useReveal(ref)
 
-  const m = { top: 12, right: 8, bottom: 26, left: 56 }
+  const notes = annotations.filter((a) => a.t >= from && a.t <= to)
+  const m = { top: notes.length ? 30 : 10, right: 8, bottom: 26, left: 52 }
   const innerW = Math.max(10, width - m.left - m.right)
   const innerH = height - m.top - m.bottom
   const baseY = m.top + innerH
-  const { max, ticks } = niceScale(Math.max(0, ...points.flatMap((p) => series.map((s) => p[s.key] ?? 0))) * 1.08)
+  const dataMax = Math.max(0, ...points.flatMap((p) => series.map((s) => p[s.key] ?? 0)), ...levels.map((l) => l.value))
+  const refMax = Math.max(0, ...references.map((r) => r.value))
+  const { max, ticks } = niceScale(Math.max(dataMax * 1.08, refMax * 1.15))
   const x = (t) => m.left + ((t - from) / (to - from)) * innerW
   const y = (v) => baseY - (v / max) * innerH
   const xs = points.map((p) => x(p.t))
+
   // Trechos contínuos com dado (sem tráfego, o quantil não existe).
   const runs = (k) => {
     const out = []
@@ -59,11 +73,9 @@ export default function LineChart({
     if (cur.length) out.push(cur)
     return out
   }
-  const seg = (run, k) => run.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p[k]).toFixed(1)}`).join('')
-  const line = (k) => runs(k).map((r) => seg(r, k)).join('')
-  const area = (k) =>
+  const line = (k) =>
     runs(k)
-      .map((r) => `${seg(r, k)}L${x(r.at(-1).t)},${baseY}L${x(r[0].t)},${baseY}Z`)
+      .map((run) => run.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p[k]).toFixed(1)}`).join(''))
       .join('')
 
   const onKey = (e) => {
@@ -75,7 +87,7 @@ export default function LineChart({
   const hp = hover != null ? points[hover] : null
 
   return (
-    <div className="chart" ref={ref} style={{ height }}>
+    <div className="chart" ref={ref} style={{ height }} data-reveal={reveal}>
       {width > 0 && (
         <svg
           width={width}
@@ -89,46 +101,71 @@ export default function LineChart({
           onBlur={() => setHover(null)}
           onKeyDown={onKey}
         >
+          {/* Recorte que abre da esquerda para a direita na animação (a série "evolui" no tempo). */}
           <defs>
-            <linearGradient id={`${uid}-fill`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" style={{ stopColor: series[series.length - 1].color, stopOpacity: 0.16 }} />
-              <stop offset="100%" style={{ stopColor: series[series.length - 1].color, stopOpacity: 0 }} />
-            </linearGradient>
+            <clipPath id={`${uid}-wipe`}>
+              <rect className="rv-clip" x={0} y={0} width={width} height={height} />
+            </clipPath>
           </defs>
+          {spans.map((s) => (
+            <g key={s.from} className="span rv-late">
+              <rect x={x(s.from)} y={m.top} width={Math.max(2, x(s.to) - x(s.from))} height={innerH} />
+            </g>
+          ))}
           {ticks.map((v) => (
             <g key={v}>
-              <line className="grid-dotted" x1={m.left} x2={m.left + innerW} y1={y(v)} y2={y(v)} />
+              <line className={v === 0 ? 'baseline' : 'gridline'} x1={m.left} x2={m.left + innerW} y1={y(v)} y2={y(v)} />
               <text className="tick" x={m.left - 10} y={y(v)} dy="0.32em" textAnchor="end">
                 {axisFormat(v)}
               </text>
             </g>
           ))}
-          {timeTicks(from, to, Math.max(3, Math.floor(innerW / 80))).map((t) => (
+          {timeTicks(from, to, Math.max(3, Math.floor(innerW / 90))).map((t) => (
             <text key={t} className="tick" x={x(t)} y={height - 6} textAnchor="middle">
               {formatTime(t)}
             </text>
           ))}
-          <path d={area(series[series.length - 1].key)} style={{ fill: `url(#${uid}-fill)` }} />
-          {series.map((s) => (
-            <path key={s.key} d={line(s.key)} className="series-line" style={{ stroke: s.color }} />
+          {references.map((r) => (
+            <g key={r.label} className={`reference rv-late tone-${r.tone ?? 'bad'}`}>
+              <line x1={m.left} x2={m.left + innerW} y1={y(r.value)} y2={y(r.value)} />
+              <text x={m.left + innerW - 4} y={y(r.value) - 6} textAnchor="end">
+                {r.label}
+              </text>
+            </g>
           ))}
-          {annotations
-            .filter((a) => a.t >= from && a.t <= to)
-            .map((a) => {
-              // Perto da borda direita, o rótulo vai para o lado esquerdo da linha.
-              const w = a.label.length * 6.4 + 14
-              const left = x(a.t) + 6 + w > m.left + innerW
-              const rx = left ? x(a.t) - 6 - w : x(a.t) + 6
-              return (
-                <g key={a.t} className="annotation">
-                  <line x1={x(a.t)} x2={x(a.t)} y1={m.top} y2={baseY} />
-                  <rect x={rx} y={m.top} width={w} height={20} rx="3" />
-                  <text x={rx + 7} y={m.top + 14}>
-                    {a.label}
+          {levels.map((l) => {
+            const x0 = x(Math.max(from, l.from))
+            const x1 = x(Math.min(to, l.to))
+            const fits = textW(l.label) < x1 - x0 - 8
+            return (
+              <g key={l.from} className={`level rv-later ${l.tone ?? ''}`}>
+                <line x1={x0} x2={x1} y1={y(l.value)} y2={y(l.value)} />
+                {fits && (
+                  <text x={x0 + 6} y={y(l.value) - 6}>
+                    {l.label}
                   </text>
-                </g>
-              )
-            })}
+                )}
+              </g>
+            )
+          })}
+          <g clipPath={`url(#${uid}-wipe)`}>
+            {series.map((s) => (
+              <path key={s.key} d={line(s.key)} className="series-line" style={{ stroke: s.color }} />
+            ))}
+          </g>
+          {notes.map((a) => {
+            // O rótulo fica na faixa de cima, ao lado da sua linha; perto da borda, vira para a esquerda.
+            const w = textW(a.label)
+            const left = x(a.t) + 6 + w > m.left + innerW
+            return (
+              <g key={a.t} className="annotation rv-mark" style={{ '--at': x(a.t) / width }}>
+                <line x1={x(a.t)} x2={x(a.t)} y1={4} y2={baseY} />
+                <text x={left ? x(a.t) - 6 : x(a.t) + 6} y={14} textAnchor={left ? 'end' : 'start'}>
+                  {a.label}
+                </text>
+              </g>
+            )
+          })}
           {hp && (
             <g>
               <line className="crosshair" x1={x(hp.t)} x2={x(hp.t)} y1={m.top} y2={baseY} />
@@ -142,7 +179,7 @@ export default function LineChart({
         </svg>
       )}
       {hp && (
-        <ChartTooltip x={x(hp.t)} y={m.top + 26} width={width}>
+        <ChartTooltip x={x(hp.t)} y={m.top + 8} width={width}>
           <div className="tooltip-time">{formatTime(hp.t)}</div>
           {[...series].reverse().map((s) => (
             <TooltipRow key={s.key} color={s.color} name={s.name} value={hp[s.key] == null ? 'sem dados' : format(hp[s.key])} />

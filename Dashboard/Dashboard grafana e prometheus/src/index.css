@@ -1,87 +1,101 @@
 @import '@fontsource-variable/inter';
 
-/* Fundo branco (padrão) ou preto puro; os dois usam os mesmos papéis de cor. */
+/*
+ * Papéis de cor. O preto puro é o padrão; o branco usa os mesmos papéis.
+ * A única cor de destaque é o teal do logo: vai nos dados principais e na
+ * linha de 1px que marca o que está selecionado. Vermelho só para erro e SLO.
+ */
 :root {
   color-scheme: light;
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f5f5f5;
-  --border: #e5e5e5;
-  --border-strong: #d4d4d4;
-  --corner: #a3a3a3;
+  --ground: #f4f4f4;
+  --panel: #ffffff;
+  --raised: #f4f4f4;
+  --active: #ececec;
+  --border: #e4e4e4;
+  --rule: #efefef;
+  --control: #cfcfcf;
   --fg: #0a0a0a;
-  --fg-2: #404040;
-  --muted: #737373;
-  --subtle: #a3a3a3;
+  --muted: #545454;
+  --faint: #6b6b6b;
 
-  /* Marcas dos gráficos, da mais forte à mais fraca. */
-  --mark-1: #404040;
+  --accent: #0f9e8e; /* teal do logo, escurecido para ler no branco */
+  --accent-soft: rgba(15, 158, 142, 0.12);
+  --mark-1: #2b2b2b;
   --mark-2: #8f8f8f;
-  --mark-3: #cfcfcf;
-  --mark-4: #ececec;
-  --grid: #e5e5e5;
+  --mark-3: #c9c9c9;
+  --grid: #e8e8e8;
 
-  --good: #15803d;
-  --bad: #dc2626;
-  --error-mark: #e5484d;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08);
+  --good: #0b7d70;
+  --bad: #d42a30;
+  --bad-soft: rgba(212, 42, 48, 0.1);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
 
   --sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 
+  --radius: 8px;
+  --radius-sm: 5px;
+  --gap: 16px;
+  --pad: 20px;
+
   font: 14px/1.5 var(--sans);
   font-feature-settings: 'cv11', 'ss01';
   color: var(--fg);
-  background: var(--bg);
+  background: var(--ground);
   -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme='light'])) {
-    color-scheme: dark;
-    --bg: #000000;
-    --surface: #000000;
-    --surface-2: #141414;
-    --border: #262626;
-    --border-strong: #333333;
-    --corner: #5c5c5c;
-    --fg: #fafafa;
-    --fg-2: #d4d4d4;
-    --muted: #a3a3a3;
-    --subtle: #737373;
-    --mark-1: #e5e5e5;
-    --mark-2: #8a8a8a;
-    --mark-3: #474747;
-    --mark-4: #262626;
-    --grid: #262626;
-    --good: #4ade80;
-    --bad: #f87171;
-    --error-mark: #f2555a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-}
-
+/* Preto: o fundo é preto puro e os painéis ficam um degrau acima. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #000000;
-  --surface: #000000;
-  --surface-2: #141414;
-  --border: #262626;
-  --border-strong: #333333;
-  --corner: #5c5c5c;
-  --fg: #fafafa;
-  --fg-2: #d4d4d4;
-  --muted: #a3a3a3;
-  --subtle: #737373;
+  --ground: #000000;
+  --panel: #0a0a0a;
+  --raised: #141414;
+  --active: #1c1c1c;
+  --border: #1c1c1c;
+  --rule: #161616;
+  --control: #3a3a3a;
+  --fg: #f5f5f5;
+  --muted: #b4b4b4;
+  --faint: #949494;
+
+  --accent: #40d6c4;
+  --accent-soft: rgba(64, 214, 196, 0.14);
   --mark-1: #e5e5e5;
   --mark-2: #8a8a8a;
-  --mark-3: #474747;
-  --mark-4: #262626;
-  --grid: #262626;
-  --good: #4ade80;
-  --bad: #f87171;
-  --error-mark: #f2555a;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+  --mark-3: #3d3d3d;
+  --grid: #1f1f1f;
+
+  --good: #40d6c4;
+  --bad: #f2555a;
+  --bad-soft: rgba(242, 85, 90, 0.14);
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --ground: #000000;
+    --panel: #0a0a0a;
+    --raised: #141414;
+    --active: #1c1c1c;
+    --border: #1c1c1c;
+    --rule: #161616;
+    --control: #3a3a3a;
+    --fg: #f5f5f5;
+    --muted: #b4b4b4;
+    --faint: #949494;
+    --accent: #40d6c4;
+    --accent-soft: rgba(64, 214, 196, 0.14);
+    --mark-1: #e5e5e5;
+    --mark-2: #8a8a8a;
+    --mark-3: #3d3d3d;
+    --grid: #1f1f1f;
+    --good: #40d6c4;
+    --bad: #f2555a;
+    --bad-soft: rgba(242, 85, 90, 0.14);
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  }
 }
 
 *,
@@ -101,7 +115,8 @@ p,
 ul,
 ol,
 dl,
-dd {
+dd,
+figure {
   margin: 0;
 }
 
@@ -122,8 +137,12 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--fg);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
 }
 
 .visually-hidden {

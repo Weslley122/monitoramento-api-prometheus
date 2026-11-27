@@ -150,6 +150,12 @@ export const IconChevronRight = (p) => (
   </Icon>
 )
 
+export const IconArrowRight = (p) => (
+  <Icon {...p}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </Icon>
+)
+
 export const IconArrowUp = (p) => (
   <Icon strokeWidth={2.2} {...p}>
     <path d="M12 19V5M6 11l6-6 6 6" />

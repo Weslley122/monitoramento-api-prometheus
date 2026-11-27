@@ -1,5 +1,5 @@
 import { LINKS, OWNER } from './format.js'
-import { Card } from './ui.jsx'
+import { Card, PageHead } from './ui.jsx'
 
 const UPDATED = '26/11/2026'
 
@@ -24,12 +24,7 @@ function Contact() {
 function LegalPage({ title, children }) {
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>{title}</h1>
-          <p className="muted">Última atualização: {UPDATED}</p>
-        </div>
-      </div>
+      <PageHead title={title} meta={`Última atualização: ${UPDATED}`} />
       <Card as="article" className="legal">
         {children}
       </Card>

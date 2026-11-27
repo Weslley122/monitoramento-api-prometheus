@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import DeployDashboard from './DeployDashboard.jsx'
 import OverviewDashboard from './OverviewDashboard.jsx'
 import { PrivacyPage, SiteFooter, TermsPage } from './Legal.jsx'
 import { CommandPalette, Dialog, InspectDrawer } from './Overlays.jsx'
 import { BACKGROUNDS } from './backgrounds.js'
+import { MOTION_OPTIONS, getMotion, setMotion, subscribeMotion } from './motion.js'
 import { Sidebar, TopBar } from './Shell.jsx'
 import { DEPLOY_WINDOWS, RANGES, SCRAPE_INTERVAL_S, toCsv } from './engine.js'
 import { LINKS, downloadText, fmtMs, fmtPct } from './format.js'
@@ -18,13 +19,13 @@ import {
   IconHelp,
   IconRocket,
 } from './icons.jsx'
-import { Card } from './ui.jsx'
+import { Card, PageHead } from './ui.jsx'
 import { useMetrics } from './useMetrics.js'
 import './App.css'
 
 const EXTERNAL = [
-  { title: 'Abrir o Grafana', href: LINKS.grafana, Icon: IconChart },
-  { title: 'Abrir o Prometheus', href: LINKS.prometheus, Icon: IconFlame },
+  { title: 'Abrir o Grafana', short: 'Grafana', href: LINKS.grafana, Icon: IconChart },
+  { title: 'Abrir o Prometheus', short: 'Prometheus', href: LINKS.prometheus, Icon: IconFlame },
 ]
 
 // Páginas fora da navegação principal (abertas pelo rodapé e pela busca).
@@ -39,11 +40,14 @@ const hostOf = (url) => url.replace(/^https?:\/\//, '')
 function SimulatedNotice({ mode, conn }) {
   return (
     <div className="notice" role="note">
-      <strong>Demonstração com dados simulados.</strong>{' '}
+      <span className="notice-dot" aria-hidden="true" />
+      <p>
+      <strong>Dados simulados.</strong>{' '}
       {mode === 'auto' && conn.state === 'offline'
         ? `O Prometheus (${hostOf(LINKS.prometheus)}) não respondeu, então os números abaixo são de um cenário de exemplo, não da sua API. `
         : 'Os números abaixo são de um cenário de exemplo, não da sua API. '}
       Para ver dados reais, suba a stack com <code>docker compose up -d</code> na raiz do projeto.
+      </p>
     </div>
   )
 }
@@ -65,11 +69,12 @@ function saved(key, allowed) {
 const initialTheme = () => saved('tema', ['light', 'dark', 'system']) ?? 'dark'
 
 /** Tela de espera/erro enquanto os dados reais não chegam. */
-function Waiting({ conn, error }) {
+function Waiting({ title, conn, error }) {
   const offline = conn.state === 'offline'
   return (
-    <Card className="empty-state">
-      <IconActivity size={22} />
+    <>
+      <PageHead title={title} lead={offline ? 'O Prometheus não respondeu.' : 'Buscando os dados no Prometheus.'} />
+      <Card className="empty-state">
       <h2>{offline ? 'Sem conexão com o Prometheus' : error ? 'Erro ao consultar o Prometheus' : 'Consultando o Prometheus…'}</h2>
       <p className="muted">
         {offline
@@ -77,11 +82,29 @@ function Waiting({ conn, error }) {
           : error || 'Buscando as séries das últimas horas.'}
       </p>
     </Card>
+    </>
   )
 }
 
+// Cada tela tem o seu endereço (#deploy, #privacidade…), para dar para compartilhar o link.
+const VIEW_IDS = ['overview', 'deploy', 'privacidade', 'termos']
+const viewFromHash = () => {
+  const id = location.hash.slice(1)
+  return VIEW_IDS.includes(id) ? id : 'overview'
+}
+
 export default function App() {
-  const [viewId, setViewId] = useState('overview')
+  const [viewId, setView] = useState(viewFromHash)
+  const setViewId = useCallback((id) => {
+    history.pushState(null, '', id === 'overview' ? location.pathname + location.search : `#${id}`)
+    setView(id)
+  }, [])
+
+  useEffect(() => {
+    const onPop = () => setView(viewFromHash())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const [rangeId, setRangeId] = useState('1h')
   const [windowId, setWindowId] = useState('1h')
   const [mode, setMode] = useState(() => saved('fonte', ['auto', 'prometheus', 'simulado']) ?? 'auto')
@@ -89,6 +112,7 @@ export default function App() {
   const [palette, setPalette] = useState(false)
   const [help, setHelp] = useState(false)
   const [inspect, setInspect] = useState(null)
+  const motion = useSyncExternalStore(subscribeMotion, getMotion)
 
   const range = RANGES.find((r) => r.id === rangeId)
   const win = DEPLOY_WINDOWS.find((w) => w.id === windowId)
@@ -98,7 +122,7 @@ export default function App() {
 
   const views = [
     { id: 'overview', title: 'Visão geral', Icon: IconGrid },
-    { id: 'deploy', title: deployInfo ? `Deploy ${deployInfo.version}` : 'Antes e depois do deploy', Icon: IconRocket },
+    { id: 'deploy', title: deployInfo ? `Deploy ${deployInfo.version}` : 'Antes e depois do deploy', short: 'Deploy', Icon: IconRocket },
   ]
   const view = [...views, ...LEGAL].find((v) => v.id === viewId)
   const current = viewId === 'deploy' ? metrics.deploy?.data : metrics.overview
@@ -165,6 +189,14 @@ export default function App() {
       icon: b.Icon,
       run: () => changeTheme(b.id),
     })),
+    ...MOTION_OPTIONS.map((o) => ({
+      id: `mo-${o.id}`,
+      group: 'Animação dos gráficos',
+      label: o.label,
+      hint: o.id === motion ? 'atual' : undefined,
+      icon: IconActivity,
+      run: () => setMotion(o.id),
+    })),
     ...EXTERNAL.map((l) => ({
       id: l.href,
       group: 'Links',
@@ -219,12 +251,12 @@ export default function App() {
                 onExport={exportCsv}
               />
             ) : (
-              <Waiting conn={metrics.conn} error={metrics.error} />
+              <Waiting title={view.title} conn={metrics.conn} error={metrics.error} />
             )
           ) : metrics.deploy ? (
             <DeployDashboard deploy={metrics.deploy} windowId={windowId} onWindow={setWindowId} onInspect={setInspect} />
           ) : (
-            <Waiting conn={metrics.conn} error={metrics.error} />
+            <Waiting title={view.title} conn={metrics.conn} error={metrics.error} />
           )}
           <SiteFooter source={metrics.source} onNavigate={setViewId} />
         </main>
